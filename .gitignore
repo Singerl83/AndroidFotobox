@@ -1,0 +1,12 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Android Studio
+.idea/
+*.iml
+.cache/
+
+# Log files
+*.log
