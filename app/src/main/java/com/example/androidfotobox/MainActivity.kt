@@ -43,10 +43,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -56,7 +54,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,9 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import com.example.androidfotobox.canon.CanonConnectionState
-import com.example.androidfotobox.canon.CanonUsbController
 import com.example.androidfotobox.ui.theme.AndroidFotoboxTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -98,7 +92,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var cameraController: LifecycleCameraController
     private var speechRecognizer: SpeechRecognizer? = null
     private lateinit var speechIntent: Intent
-    private lateinit var canonController: CanonUsbController
 
     private val captureTrigger = MutableSharedFlow<Unit>(
         extraBufferCapacity = 8,
@@ -118,14 +111,11 @@ class MainActivity : ComponentActivity() {
         }
 
         setupSpeechRecognizer()
-        canonController = CanonUsbController(this)
 
         setContent {
             AndroidFotoboxTheme {
                 val listening by listeningState.collectAsState()
                 val message by voiceMessage.collectAsState()
-                val canonState by canonController.state.collectAsState()
-                val canonEnabled by canonController.isEnabled.collectAsState()
 
                 FotoboxScreen(
                     controller = cameraController,
@@ -134,12 +124,7 @@ class MainActivity : ComponentActivity() {
                     voiceMessage = message,
                     onStartListening = ::startListening,
                     onStopListening = ::stopListening,
-                    onManualCapture = { captureTrigger.tryEmit(Unit) },
-                    canonState = canonState,
-                    canonEnabled = canonEnabled,
-                    onCanonToggle = { enabled -> canonController.setEnabled(enabled) },
-                    onCanonCapture = ::captureWithCanon,
-                    onCanonRetry = { canonController.connect() }
+                    onManualCapture = { captureTrigger.tryEmit(Unit) }
                 )
             }
         }
@@ -159,9 +144,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        canonController.shutdown()
-        speechRecognizer?.destroy()
         super.onDestroy()
+        speechRecognizer?.destroy()
     }
 
     private fun setupSpeechRecognizer() {
@@ -248,22 +232,6 @@ class MainActivity : ComponentActivity() {
         listeningState.value = false
         shouldRestartVoice = false
     }
-
-    private fun captureWithCanon() {
-        lifecycleScope.launch {
-            val result = canonController.capturePhoto()
-            if (result.isSuccess) {
-                Toast.makeText(this@MainActivity, getString(R.string.canon_capture_success), Toast.LENGTH_SHORT).show()
-            } else {
-                val message = result.exceptionOrNull()?.localizedMessage ?: getString(R.string.canon_capture_unknown)
-                Toast.makeText(
-                    this@MainActivity,
-                    getString(R.string.canon_capture_failed, message),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    }
 }
 
 private data class ResolutionOption(val label: String, val size: Size?)
@@ -277,12 +245,7 @@ private fun FotoboxScreen(
     voiceMessage: String?,
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
-    onManualCapture: () -> Unit,
-    canonState: CanonConnectionState,
-    canonEnabled: Boolean,
-    onCanonToggle: (Boolean) -> Unit,
-    onCanonCapture: () -> Unit,
-    onCanonRetry: () -> Unit
+    onManualCapture: () -> Unit
 ) {
     val permissionsState = rememberMultiplePermissionsState(
         listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
@@ -307,9 +270,6 @@ private fun FotoboxScreen(
     var selectedResolution by remember { mutableStateOf(resolutionOptions.first()) }
 
     val coroutineScope = rememberCoroutineScope()
-    val latestCanonState by rememberUpdatedState(canonState)
-    val latestCanonEnabled by rememberUpdatedState(canonEnabled)
-    val latestCanonCapture by rememberUpdatedState(onCanonCapture)
 
     DisposableCameraBinding(controller = controller, lifecycleOwner = lifecycleOwner, useFrontCamera = useFrontCamera)
 
@@ -319,12 +279,6 @@ private fun FotoboxScreen(
             showPermissionHint = true
         } else {
             showPermissionHint = false
-        }
-    }
-
-    LaunchedEffect(canonEnabled) {
-        if (canonEnabled) {
-            expanded = false
         }
     }
 
@@ -339,15 +293,7 @@ private fun FotoboxScreen(
                 onTick = { countdownRemaining = it },
                 onComplete = {
                     countdownRemaining = null
-                    if (latestCanonEnabled) {
-                        if (latestCanonState is CanonConnectionState.Ready) {
-                            latestCanonCapture()
-                        } else {
-                            Toast.makeText(context, context.getString(R.string.canon_not_ready), Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        capturePhoto(context, controller, selectedResolution)
-                    }
+                    capturePhoto(context, controller, selectedResolution)
                 }
             )
         }
@@ -430,88 +376,6 @@ private fun FotoboxScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        val statusText: String
-                        val statusColor: Color
-                        when (val state = canonState) {
-                            is CanonConnectionState.Disconnected -> {
-                                statusText = stringResource(R.string.canon_status_disconnected)
-                                statusColor = Color.White
-                            }
-                            is CanonConnectionState.RequestingPermission -> {
-                                statusText = stringResource(R.string.canon_status_permission)
-                                statusColor = Color.White
-                            }
-                            is CanonConnectionState.Connecting -> {
-                                statusText = stringResource(R.string.canon_status_connecting)
-                                statusColor = Color.White
-                            }
-                            is CanonConnectionState.Ready -> {
-                                statusText = stringResource(R.string.canon_status_ready)
-                                statusColor = Color.Green
-                            }
-                            is CanonConnectionState.Capturing -> {
-                                statusText = stringResource(R.string.canon_status_capturing)
-                                statusColor = Color.Yellow
-                            }
-                            is CanonConnectionState.Error -> {
-                                statusText = stringResource(R.string.canon_status_error, state.message)
-                                statusColor = Color.Red
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.canon_enable_label),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text(
-                                    text = statusText,
-                                    color = statusColor,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                            Switch(
-                                checked = canonEnabled,
-                                onCheckedChange = onCanonToggle
-                            )
-                        }
-
-                        if (canonEnabled) {
-                            Spacer(modifier = Modifier.size(12.dp))
-                            Text(
-                                text = stringResource(R.string.canon_resolution_note),
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall,
-                                textAlign = TextAlign.Start
-                            )
-                        }
-
-                        if (canonEnabled && canonState is CanonConnectionState.Error) {
-                            Spacer(modifier = Modifier.size(12.dp))
-                            OutlinedButton(onClick = onCanonRetry) {
-                                Text(text = stringResource(R.string.canon_retry))
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.size(16.dp))
-
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
                             .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -524,21 +388,17 @@ private fun FotoboxScreen(
                             value = countdownSeconds,
                             onValueChange = { countdownSeconds = it.roundToInt().toFloat() },
                             valueRange = 0f..10f,
-                            steps = 9,
-                            enabled = !canonEnabled
+                            steps = 9
                         )
 
                         Spacer(modifier = Modifier.size(12.dp))
 
                         Box {
-                            Button(
-                                onClick = { if (!canonEnabled) expanded = true },
-                                enabled = !canonEnabled
-                            ) {
+                            Button(onClick = { expanded = true }) {
                                 Text(selectedResolution.label)
                             }
                             DropdownMenu(
-                                expanded = expanded && !canonEnabled,
+                                expanded = expanded,
                                 onDismissRequest = { expanded = false }
                             ) {
                                 resolutionOptions.forEach { option ->
@@ -547,8 +407,7 @@ private fun FotoboxScreen(
                                         onClick = {
                                             selectedResolution = option
                                             expanded = false
-                                        },
-                                        enabled = !canonEnabled
+                                        }
                                     )
                                 }
                             }
