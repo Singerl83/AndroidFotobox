@@ -4,9 +4,9 @@ build/
 app/build/
 
 # Android Studio
-.idea/
-*.iml
-.cache/
+#.idea/
+#*.iml
+#.cache/
 
 # Log files
 *.log
