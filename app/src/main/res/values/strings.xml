@@ -6,6 +6,9 @@
     <string name="capture_button">Auslösen</string>
     <string name="start_listening">Sprachsteuerung starten</string>
     <string name="stop_listening">Sprachsteuerung stoppen</string>
+    <string name="flip_camera_content_desc">Kamerabild drehen</string>
+    <string name="start_listening_desc">Sprachsteuerung starten</string>
+    <string name="stop_listening_desc">Sprachsteuerung stoppen</string>
     <string name="permission_required">Kamera- und Mikrofonzugriff wird benötigt</string>
     <string name="bluetooth_hint">Bluetooth-Fernauslöser kann die Lautstärketasten verwenden</string>
     <string name="voice_error">Sprachsteuerung derzeit nicht verfügbar</string>

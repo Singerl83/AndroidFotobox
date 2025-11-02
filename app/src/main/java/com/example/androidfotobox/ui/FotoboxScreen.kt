@@ -37,7 +37,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,7 +74,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 import android.util.Size
 
 private data class ResolutionOption(val label: String, val size: Size?)
@@ -103,8 +101,9 @@ fun FotoboxScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var useFrontCamera by remember { mutableStateOf(true) }
-    var expanded by remember { mutableStateOf(false) }
-    var countdownSeconds by remember { mutableStateOf(3f) }
+    var resolutionExpanded by remember { mutableStateOf(false) }
+    var countdownExpanded by remember { mutableStateOf(false) }
+    var countdownSeconds by remember { mutableStateOf(3) }
     var countdownRemaining by remember { mutableStateOf<Int?>(null) }
     var showPermissionHint by remember { mutableStateOf(false) }
 
@@ -140,7 +139,8 @@ fun FotoboxScreen(
 
     LaunchedEffect(canonEnabled) {
         if (canonEnabled) {
-            expanded = false
+            resolutionExpanded = false
+            countdownExpanded = false
         }
     }
 
@@ -151,7 +151,7 @@ fun FotoboxScreen(
             countdownJob?.cancel()
             countdownJob = triggerCountdown(
                 scope = coroutineScope,
-                seconds = countdownSeconds.roundToInt().coerceAtLeast(0),
+                seconds = countdownSeconds.coerceAtLeast(0),
                 onTick = { countdownRemaining = it },
                 onComplete = {
                     countdownRemaining = null
@@ -322,50 +322,57 @@ fun FotoboxScreen(
 
                 Spacer(modifier = Modifier.size(16.dp))
 
-                OutlinedCard(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.countdown_label) + ": ${countdownSeconds.roundToInt()}s",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Slider(
-                            value = countdownSeconds,
-                            onValueChange = { countdownSeconds = it.roundToInt().toFloat() },
-                            valueRange = 0f..10f,
-                            steps = 9,
+                    Box {
+                        OutlinedButton(
+                            onClick = { if (!canonEnabled) countdownExpanded = true },
                             enabled = !canonEnabled
-                        )
-
-                        Spacer(modifier = Modifier.size(12.dp))
-
-                        Box {
-                            Button(
-                                onClick = { if (!canonEnabled) expanded = true },
-                                enabled = !canonEnabled
-                            ) {
-                                Text(selectedResolution.label)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.countdown_label) + ": ${countdownSeconds}s",
+                                color = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = countdownExpanded && !canonEnabled,
+                            onDismissRequest = { countdownExpanded = false }
+                        ) {
+                            (0..10).forEach { seconds ->
+                                DropdownMenuItem(
+                                    text = { Text("${seconds}s") },
+                                    onClick = {
+                                        countdownSeconds = seconds
+                                        countdownExpanded = false
+                                    }
+                                )
                             }
-                            DropdownMenu(
-                                expanded = expanded && !canonEnabled,
-                                onDismissRequest = { expanded = false }
-                            ) {
-                                resolutionOptions.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option.label) },
-                                        onClick = {
-                                            selectedResolution = option
-                                            expanded = false
-                                        },
-                                        enabled = !canonEnabled
-                                    )
-                                }
+                        }
+                    }
+
+                    Box {
+                        Button(
+                            onClick = { if (!canonEnabled) resolutionExpanded = true },
+                            enabled = !canonEnabled
+                        ) {
+                            Text(selectedResolution.label)
+                        }
+                        DropdownMenu(
+                            expanded = resolutionExpanded && !canonEnabled,
+                            onDismissRequest = { resolutionExpanded = false }
+                        ) {
+                            resolutionOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label) },
+                                    onClick = {
+                                        selectedResolution = option
+                                        resolutionExpanded = false
+                                    },
+                                    enabled = !canonEnabled
+                                )
                             }
                         }
                     }
