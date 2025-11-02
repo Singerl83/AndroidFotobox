@@ -35,25 +35,3 @@ Für einen direkten Download ohne Upload nach GitHub kannst du jederzeit ein akt
 ```
 
 Im Anschluss findest du z. B. `dist/AndroidFotobox-20240523-153000.zip`, das du ohne weitere Nachbearbeitung weitergeben oder herunterladen kannst. Das Archiv enthält sämtliche Projektdaten (inklusive Gradle-Wrapper) und lässt sich direkt in Android Studio importieren.
-
-## Projekt auf GitHub hochladen
-
-Damit wirklich alle relevanten Projektdateien (inklusive Gradle-Wrapper und Skripte) auf GitHub landen, empfiehlt sich der Upload über Git statt über die Weboberfläche. Vorgehen:
-
-1. Repository lokal klonen oder das vorhandene Arbeitsverzeichnis verwenden.
-2. Sicherstellen, dass der Ordner `dist/` sowie andere generierte Artefakte ignoriert werden (ist bereits durch `.gitignore` abgedeckt).
-3. Alle Änderungen erfassen und committen:
-   ```bash
-   git add -A
-   git commit -m "Aktualisiere AndroidFotobox"
-   ```
-4. Falls das Remote-Repository noch nicht verknüpft ist, einmalig einrichten:
-   ```bash
-   git remote add origin https://github.com/<dein-benutzername>/<dein-repo>.git
-   ```
-5. Änderungen hochladen:
-   ```bash
-   git push origin main
-   ```
-
-So werden sämtliche Dateien (ohne unerwünschte Binär- oder Build-Artefakte) zuverlässig auf GitHub übertragen.
