@@ -18,10 +18,20 @@ Eine Android-App, die ein Smartphone oder Tablet in eine Fotobox verwandelt.
 
 ## Projekt bauen
 
-Dieses Repository enthält keinen Gradle Wrapper. Verwende eine lokale Gradle-Installation (z. B. `gradle 8.5`) und führe im Projektverzeichnis aus:
+Das Projekt bringt den Gradle Wrapper mit. Du kannst Builds direkt mit folgendem Befehl starten:
 
 ```bash
-gradle assembleDebug
+./gradlew assembleDebug
 ```
 
-Zum Starten in Android Studio das Projekt als bestehendes Android-Projekt importieren.
+Alternativ lässt sich das Projekt wie gewohnt in Android Studio importieren und über die Oberfläche starten.
+
+## Projekt archivieren
+
+Für einen direkten Download ohne Upload nach GitHub kannst du jederzeit ein aktuelles Archiv lokal erzeugen. Das Repository bringt dafür ein Skript mit, das ein ZIP in den Ordner `dist/` schreibt:
+
+```bash
+./scripts/package_project.sh
+```
+
+Im Anschluss findest du z. B. `dist/AndroidFotobox-20240523-153000.zip`, das du ohne weitere Nachbearbeitung weitergeben oder herunterladen kannst. Das Archiv enthält sämtliche Projektdaten (inklusive Gradle-Wrapper) und lässt sich direkt in Android Studio importieren.

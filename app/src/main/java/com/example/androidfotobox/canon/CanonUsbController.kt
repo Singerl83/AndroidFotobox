@@ -145,9 +145,13 @@ class CanonUsbController(private val context: Context) {
                 throw IOException("PTP response 0x${response.toString(16)}")
             }
         }
-        _state.value = if (result.isSuccess) CanonConnectionState.Ready else CanonConnectionState.Error(
-            result.exceptionOrNull()?.localizedMessage ?: context.getString(R.string.canon_capture_unknown)
-        )
+        _state.value = if (result.isSuccess) {
+            CanonConnectionState.Ready
+        } else {
+            CanonConnectionState.Error(
+                result.exceptionOrNull()?.localizedMessage ?: context.getString(R.string.canon_capture_unknown)
+            )
+        }
         return result
     }
 
@@ -279,8 +283,10 @@ class CanonUsbController(private val context: Context) {
     }
 
     private suspend fun sendCommand(operationCode: Int, vararg params: Int): Int {
-        return connectionMutex.withLock {
-            sendCommandLocked(operationCode, *params)
+        return withContext(Dispatchers.IO) {
+            connectionMutex.withLock {
+                sendCommandLocked(operationCode, *params)
+            }
         }
     }
 
