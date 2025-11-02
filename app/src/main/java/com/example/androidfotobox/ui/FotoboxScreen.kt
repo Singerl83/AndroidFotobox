@@ -1,11 +1,10 @@
 package com.example.androidfotobox.ui
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.Context
+import android.content.ContentValues
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Size
 import android.widget.Toast
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -35,6 +34,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +47,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.menuAnchor
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -82,10 +86,11 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.util.Size
 
-private data class ResolutionOption(val labelRes: Int, val size: Size?)
+private data class ResolutionOption(val label: String, val size: Size?)
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun FotoboxScreen(
     controller: LifecycleCameraController,
@@ -107,23 +112,22 @@ fun FotoboxScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var useFrontCamera by rememberSaveable { mutableStateOf(true) }
+    var useFrontCamera by remember { mutableStateOf(true) }
     var resolutionExpanded by remember { mutableStateOf(false) }
     var countdownExpanded by remember { mutableStateOf(false) }
-    var countdownSeconds by rememberSaveable { mutableIntStateOf(3) }
+    var countdownSeconds by remember { mutableStateOf(3) }
     var countdownRemaining by remember { mutableStateOf<Int?>(null) }
     var showPermissionHint by remember { mutableStateOf(false) }
 
     val resolutionOptions = remember {
         listOf(
-            ResolutionOption(R.string.resolution_option_max, null),
-            ResolutionOption(R.string.resolution_option_12mp, Size(4000, 3000)),
-            ResolutionOption(R.string.resolution_option_8mp, Size(3264, 2448)),
-            ResolutionOption(R.string.resolution_option_5mp, Size(2592, 1944))
+            ResolutionOption("Maximal", null),
+            ResolutionOption("12 MP", Size(4000, 3000)),
+            ResolutionOption("8 MP", Size(3264, 2448)),
+            ResolutionOption("5 MP", Size(2592, 1944))
         )
     }
-    var selectedResolutionIndex by rememberSaveable { mutableIntStateOf(0) }
-    val selectedResolution = resolutionOptions[selectedResolutionIndex]
+    var selectedResolution by remember { mutableStateOf(resolutionOptions.first()) }
 
     val coroutineScope = rememberCoroutineScope()
     val latestCanonState by rememberUpdatedState(canonState)
@@ -177,13 +181,10 @@ fun FotoboxScreen(
         }
     }
 
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val onBackgroundColor = MaterialTheme.colorScheme.onBackground
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(Color.Black)
     ) {
         if (permissionsState.allPermissionsGranted) {
             CameraPreview(
@@ -211,7 +212,7 @@ fun FotoboxScreen(
                 Text(
                     text = stringResource(R.string.bluetooth_hint),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = onBackgroundColor,
+                    color = Color.White,
                     textAlign = TextAlign.Center
                 )
                 voiceMessage?.let {
@@ -219,7 +220,7 @@ fun FotoboxScreen(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = onBackgroundColor,
+                        color = Color.White,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -227,7 +228,7 @@ fun FotoboxScreen(
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(
                         text = stringResource(R.string.permission_required),
-                        color = MaterialTheme.colorScheme.error,
+                        color = Color.Red,
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -243,7 +244,7 @@ fun FotoboxScreen(
                 countdownRemaining?.let { remaining ->
                     Text(
                         text = remaining.toString(),
-                        color = onBackgroundColor,
+                        color = Color.White,
                         fontSize = 72.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -251,13 +252,85 @@ fun FotoboxScreen(
 
                 Spacer(modifier = Modifier.size(16.dp))
 
-                CanonStatusCard(
-                    canonState = canonState,
-                    canonEnabled = canonEnabled,
-                    onCanonToggle = onCanonToggle,
-                    onCanonCapture = onCanonCapture,
-                    onCanonRetry = onCanonRetry
-                )
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        val statusText: String
+                        val statusColor: Color
+                        when (val state = canonState) {
+                            is CanonConnectionState.Disconnected -> {
+                                statusText = stringResource(R.string.canon_status_disconnected)
+                                statusColor = Color.White
+                            }
+                            is CanonConnectionState.RequestingPermission -> {
+                                statusText = stringResource(R.string.canon_status_permission)
+                                statusColor = Color.White
+                            }
+                            is CanonConnectionState.Connecting -> {
+                                statusText = stringResource(R.string.canon_status_connecting)
+                                statusColor = Color.White
+                            }
+                            is CanonConnectionState.Ready -> {
+                                statusText = stringResource(R.string.canon_status_ready)
+                                statusColor = Color.Green
+                            }
+                            is CanonConnectionState.Capturing -> {
+                                statusText = stringResource(R.string.canon_status_capturing)
+                                statusColor = Color.Yellow
+                            }
+                            is CanonConnectionState.Error -> {
+                                statusText = stringResource(R.string.canon_status_error, state.message)
+                                statusColor = Color.Red
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.canon_enable_label),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = statusText,
+                                    color = statusColor,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Switch(
+                                checked = canonEnabled,
+                                onCheckedChange = { enabled -> onCanonToggle(enabled) }
+                            )
+                        }
+
+                        if (canonEnabled) {
+                            Spacer(modifier = Modifier.size(12.dp))
+                            OutlinedButton(onClick = onCanonCapture, enabled = canonState is CanonConnectionState.Ready) {
+                                Text(text = stringResource(R.string.capture_button))
+                            }
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text(
+                                text = stringResource(R.string.canon_resolution_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White
+                            )
+                            if (canonState is CanonConnectionState.Error) {
+                                Spacer(modifier = Modifier.size(8.dp))
+                                OutlinedButton(onClick = onCanonRetry) {
+                                    Text(text = stringResource(R.string.canon_retry))
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.size(16.dp))
 
@@ -266,28 +339,55 @@ fun FotoboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CountdownSelector(
-                        expanded = countdownExpanded,
-                        onExpandedChange = { countdownExpanded = it },
-                        selectedSeconds = countdownSeconds,
-                        enabled = !canonEnabled,
-                        onSelect = { value ->
-                            countdownSeconds = value
-                            countdownExpanded = false
+                    Box {
+                        OutlinedButton(
+                            onClick = { if (!canonEnabled) countdownExpanded = true },
+                            enabled = !canonEnabled
+                        ) {
+                            Text(
+                                text = stringResource(R.string.countdown_label) + ": ${countdownSeconds}s",
+                                color = Color.White
+                            )
                         }
-                    )
+                        DropdownMenu(
+                            expanded = countdownExpanded && !canonEnabled,
+                            onDismissRequest = { countdownExpanded = false }
+                        ) {
+                            (0..10).forEach { seconds ->
+                                DropdownMenuItem(
+                                    text = { Text("${seconds}s") },
+                                    onClick = {
+                                        countdownSeconds = seconds
+                                        countdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
 
-                    ResolutionSelector(
-                        expanded = resolutionExpanded,
-                        onExpandedChange = { resolutionExpanded = it },
-                        selectedOption = selectedResolution,
-                        resolutionOptions = resolutionOptions,
-                        enabled = !canonEnabled,
-                        onSelect = { index ->
-                            selectedResolutionIndex = index
-                            resolutionExpanded = false
+                    Box {
+                        Button(
+                            onClick = { if (!canonEnabled) resolutionExpanded = true },
+                            enabled = !canonEnabled
+                        ) {
+                            Text(selectedResolution.label)
                         }
-                    )
+                        DropdownMenu(
+                            expanded = resolutionExpanded && !canonEnabled,
+                            onDismissRequest = { resolutionExpanded = false }
+                        ) {
+                            resolutionOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label) },
+                                    onClick = {
+                                        selectedResolution = option
+                                        resolutionExpanded = false
+                                    },
+                                    enabled = !canonEnabled
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.size(16.dp))
@@ -302,17 +402,17 @@ fun FotoboxScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
+                            .background(Color.DarkGray.copy(alpha = 0.6f))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Cameraswitch,
-                            contentDescription = stringResource(R.string.flip_camera_content_desc),
-                            tint = onBackgroundColor
+                            contentDescription = null,
+                            tint = Color.White
                         )
                     }
 
                     Button(
-                        onClick = onManualCapture,
+                        onClick = { onManualCapture() },
                         modifier = Modifier
                             .height(72.dp)
                             .width(160.dp)
@@ -325,205 +425,13 @@ fun FotoboxScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
+                            .background(Color.DarkGray.copy(alpha = 0.6f))
                     ) {
                         Icon(
                             imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
-                            contentDescription = stringResource(
-                                if (isListening) R.string.stop_listening_desc else R.string.start_listening_desc
-                            ),
-                            tint = if (isListening) MaterialTheme.colorScheme.error else onBackgroundColor
+                            contentDescription = null,
+                            tint = if (isListening) Color.Red else Color.White
                         )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CountdownSelector(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    selectedSeconds: Int,
-    enabled: Boolean,
-    onSelect: (Int) -> Unit
-) {
-    val labelText = if (selectedSeconds == 0) {
-        stringResource(R.string.countdown_off)
-    } else {
-        stringResource(R.string.countdown_value_format, selectedSeconds)
-    }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = {
-            if (enabled) {
-                onExpandedChange(!expanded)
-            }
-        }
-    ) {
-        OutlinedTextField(
-            modifier = Modifier
-                .menuAnchor(),
-            value = labelText,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(text = stringResource(R.string.countdown_label)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            enabled = enabled,
-            colors = TextFieldDefaults.outlinedTextFieldColors()
-        )
-
-        androidx.compose.material3.ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { onExpandedChange(false) }
-        ) {
-            (0..10).forEach { seconds ->
-                DropdownMenuItem(
-                    text = {
-                        val optionText = if (seconds == 0) {
-                            stringResource(R.string.countdown_off)
-                        } else {
-                            stringResource(R.string.countdown_value_format, seconds)
-                        }
-                        Text(optionText)
-                    },
-                    onClick = { onSelect(seconds) }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ResolutionSelector(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    selectedOption: ResolutionOption,
-    resolutionOptions: List<ResolutionOption>,
-    enabled: Boolean,
-    onSelect: (Int) -> Unit
-) {
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = {
-            if (enabled) {
-                onExpandedChange(!expanded)
-            }
-        }
-    ) {
-        OutlinedTextField(
-            modifier = Modifier.menuAnchor(),
-            value = stringResource(id = selectedOption.labelRes),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(text = stringResource(R.string.resolution_label)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            enabled = enabled,
-            colors = TextFieldDefaults.outlinedTextFieldColors()
-        )
-
-        androidx.compose.material3.ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { onExpandedChange(false) }
-        ) {
-            resolutionOptions.forEachIndexed { index, option ->
-                DropdownMenuItem(
-                    text = { Text(text = stringResource(id = option.labelRes)) },
-                    onClick = { onSelect(index) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CanonStatusCard(
-    canonState: CanonConnectionState,
-    canonEnabled: Boolean,
-    onCanonToggle: (Boolean) -> Unit,
-    onCanonCapture: () -> Unit,
-    onCanonRetry: () -> Unit
-) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            val statusText: String
-            val statusColor = when (val state = canonState) {
-                is CanonConnectionState.Disconnected -> {
-                    statusText = stringResource(R.string.canon_status_disconnected)
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                is CanonConnectionState.RequestingPermission -> {
-                    statusText = stringResource(R.string.canon_status_permission)
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                is CanonConnectionState.Connecting -> {
-                    statusText = stringResource(R.string.canon_status_connecting)
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                is CanonConnectionState.Ready -> {
-                    statusText = stringResource(R.string.canon_status_ready)
-                    MaterialTheme.colorScheme.tertiary
-                }
-                is CanonConnectionState.Capturing -> {
-                    statusText = stringResource(R.string.canon_status_capturing)
-                    MaterialTheme.colorScheme.primary
-                }
-                is CanonConnectionState.Error -> {
-                    statusText = stringResource(R.string.canon_status_error, state.message)
-                    MaterialTheme.colorScheme.error
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.canon_enable_label),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = statusText,
-                        color = statusColor,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                Switch(
-                    checked = canonEnabled,
-                    onCheckedChange = onCanonToggle,
-                    colors = SwitchDefaults.colors()
-                )
-            }
-
-            if (canonEnabled) {
-                Spacer(modifier = Modifier.size(12.dp))
-                OutlinedButton(
-                    onClick = onCanonCapture,
-                    enabled = canonState is CanonConnectionState.Ready
-                ) {
-                    Text(text = stringResource(R.string.capture_button))
-                }
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = stringResource(R.string.canon_resolution_note),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                if (canonState is CanonConnectionState.Error) {
-                    Spacer(modifier = Modifier.size(8.dp))
-                    OutlinedButton(onClick = onCanonRetry) {
-                        Text(text = stringResource(R.string.canon_retry))
                     }
                 }
             }
