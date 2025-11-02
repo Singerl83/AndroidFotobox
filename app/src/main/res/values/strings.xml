@@ -35,4 +35,10 @@
     <string name="canon_capture_failed">Canon-Auslösung fehlgeschlagen: %1$s</string>
     <string name="canon_resolution_note">Die Bildauflösung wird direkt an der Canon-Kamera eingestellt.</string>
     <string name="canon_retry">Erneut verbinden</string>
+    <string name="countdown_off">Aus</string>
+    <string name="countdown_value_format">%1$d s</string>
+    <string name="resolution_option_max">Maximal</string>
+    <string name="resolution_option_12mp">12 MP</string>
+    <string name="resolution_option_8mp">8 MP</string>
+    <string name="resolution_option_5mp">5 MP</string>
 </resources>
