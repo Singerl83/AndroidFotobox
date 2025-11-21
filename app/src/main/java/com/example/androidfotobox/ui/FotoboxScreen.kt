@@ -1,9 +1,10 @@
 package com.example.androidfotobox.ui
 
 import android.Manifest
-import android.content.Context
 import android.content.ContentValues
+import android.content.Context
 import android.os.Build
+import android.util.Size
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.camera.core.ImageCapture
@@ -30,10 +31,6 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -41,24 +38,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.menuAnchor
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +75,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import android.util.Size
 
 private data class ResolutionOption(val label: String, val size: Size?)
 
@@ -134,11 +122,13 @@ fun FotoboxScreen(
     val latestCanonEnabled by rememberUpdatedState(canonEnabled)
     val latestCanonCapture by rememberUpdatedState(onCanonCapture)
 
-    DisposableCameraBinding(
-        controller = controller,
-        lifecycleOwner = lifecycleOwner,
-        useFrontCamera = useFrontCamera
-    )
+    if (permissionsState.allPermissionsGranted) {
+        DisposableCameraBinding(
+            controller = controller,
+            lifecycleOwner = lifecycleOwner,
+            useFrontCamera = useFrontCamera
+        )
+    }
 
     LaunchedEffect(permissionsState.allPermissionsGranted) {
         if (!permissionsState.allPermissionsGranted) {
@@ -160,6 +150,12 @@ fun FotoboxScreen(
 
     LaunchedEffect(captureTrigger) {
         captureTrigger.collect {
+            if (!permissionsState.allPermissionsGranted) {
+                showPermissionHint = true
+                permissionsState.launchMultiplePermissionRequest()
+                Toast.makeText(context, context.getString(R.string.permission_required), Toast.LENGTH_SHORT).show()
+                return@collect
+            }
             countdownJob?.cancel()
             countdownJob = triggerCountdown(
                 scope = coroutineScope,
